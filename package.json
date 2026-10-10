@@ -1,13 +1,15 @@
 {
-  "name": "react-app",
+  "name": "aeroroute",
   "private": true,
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
+    "dev": "next dev --hostname 127.0.0.1 --port 5173",
+    "build": "next build --webpack",
+    "start": "next start",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "typecheck": "tsc --noEmit",
+    "test": "node scripts/run-tests.mjs"
   },
   "dependencies": {
     "@metaplex-foundation/js": "^0.19.5",
@@ -16,32 +18,35 @@
     "@solana/wallet-adapter-react-ui": "^0.9.39",
     "@solana/wallet-adapter-wallets": "^0.19.37",
     "@solana/web3.js": "^1.98.4",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "firebase": "12.19.0",
+    "firebase-admin": "14.5.0",
+    "next": "16.4.0",
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.33.0",
-    "@types/node": "^24.9.2",
+    "@types/node": "^22.0.0",
     "@types/react": "^19.1.12",
     "@types/react-dom": "^19.1.9",
-    "@vitejs/plugin-react": "^5.0.2",
+    "autoprefixer": "^10.4.21",
     "buffer": "^6.0.3",
     "eslint": "^9.33.0",
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.20",
     "globals": "^16.3.0",
+    "postcss": "^8.5.6",
     "process": "^0.11.10",
     "stream-browserify": "^3.0.0",
+    "tailwindcss": "^3.4.18",
     "ts-node": "^10.9.2",
     "typescript": "~5.8.3",
     "typescript-eslint": "^8.39.1",
     "undici-types": "^7.16.0",
     "url": "^0.11.4",
-    "util": "^0.12.5",
-    "vite": "^7.1.2",
-    "vite-plugin-node-polyfills": "^0.24.0"
+    "util": "^0.12.5"
   },
-  "description": "This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.",
+  "description": "AeroRoute parcel delivery MVP",
   "main": "eslint.config.js",
   "repository": {
     "type": "git",
@@ -53,5 +58,9 @@
   "bugs": {
     "url": "https://github.com/vcffff/Blockchain-project/issues"
   },
-  "homepage": "https://github.com/vcffff/Blockchain-project#readme"
+  "homepage": "https://github.com/vcffff/Blockchain-project#readme",
+  "overrides": {
+    "@firebase/app-compat": "0.5.18",
+    "@firebase/app": "0.16.2"
+  }
 }

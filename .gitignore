@@ -29,3 +29,9 @@ dist-ssr
 .env.*
 !.env.example
 *.tsbuildinfo
+
+# Next.js and local demo storage
+.next/
+.aeroroute/
+.omx/
+next-env.d.ts
