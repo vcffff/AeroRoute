@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import "../index.css";
-export const metadata: Metadata = { title: "AeroRoute — доставка дронами", description: "Доставка небольших посылок независимыми операторами дронов в Казахстане" };
+export const metadata: Metadata = { title: "AeroRoute — drone delivery", description: "Delivery of small parcels by independent drone operators in Kazakhstan" };
 export default function RootLayout({ children }: { children: React.ReactNode }) {
-  return <html lang="ru" data-scroll-behavior="smooth"><head>
+  return <html lang="en" data-scroll-behavior="smooth"><head>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet" />

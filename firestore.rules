@@ -3,6 +3,10 @@ service cloud.firestore {
  match /databases/{database}/documents {
   function signedIn() { return request.auth != null; }
   function ownRole(role) { return signedIn() && get(/databases/$(database)/documents/profiles/$(request.auth.uid)).data.role == role; }
+  function orderParty(orderId) {
+   return get(/databases/$(database)/documents/orders/$(orderId)).data.customerId == request.auth.uid
+    || get(/databases/$(database)/documents/orders/$(orderId)).data.operatorId == request.auth.uid;
+  }
   match /profiles/{id} { allow read: if signedIn() && id == request.auth.uid; allow write: if false; }
   match /orders/{id} {
    allow read: if (ownRole('customer') && resource.data.customerId == request.auth.uid) || (ownRole('operator') && resource.data.operatorId == request.auth.uid);
@@ -11,6 +15,12 @@ service cloud.firestore {
   // Offers contain only coarse areas, weight, price and ID. Never private order fields.
   match /offers/{id} { allow read: if ownRole('operator') && resource.data.available == true; allow write: if false; }
   match /drones/{id} { allow read: if ownRole('operator') && resource.data.operatorId == request.auth.uid; allow write: if false; }
+  match /addresses/{id} { allow read: if signedIn() && resource.data.ownerId == request.auth.uid; allow write: if false; }
+  match /payments/{id} { allow read: if signedIn() && (resource.data.payerId == request.auth.uid || resource.data.payeeId == request.auth.uid); allow write: if false; }
+  match /orderTracking/{id} { allow read: if signedIn() && orderParty(resource.data.orderId); allow write: if false; }
+  match /reviews/{id} { allow read: if signedIn() && (resource.data.reviewerId == request.auth.uid || (resource.data.isPublic == true && resource.data.revieweeId == request.auth.uid)); allow write: if false; }
+  match /incidents/{id} { allow read: if ownRole('operator') || (signedIn() && resource.data.reportedByUserId == request.auth.uid); allow write: if false; }
+  match /droneAvailabilityZones/{id} { allow read: if signedIn(); allow write: if false; }
   match /{document=**} { allow read, write: if false; }
  }
 }

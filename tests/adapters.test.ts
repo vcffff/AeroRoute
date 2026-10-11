@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DemoRepository } from '../src/lib/adapters/demo-store';
 import { DeliveryService } from '../src/lib/service';
-import { DemoPayments, UnconfiguredPayments } from '../src/lib/payments';
+import { DemoEscrowPayments } from '../src/lib/payments';
 import { getMode } from '../src/lib/config';
 import type { Profile, Order } from '../src/lib/domain';
 
@@ -34,13 +34,13 @@ test('real demo adapter serializes acceptance across repository instances and pe
         await tx.set('profiles', id, profile);
       }
     });
-    const a = new DeliveryService(stores.first, new DemoPayments());
-    const b = new DeliveryService(stores.second, new DemoPayments());
-    const droneA = await a.addDrone('operator-a', { name: 'Drone Alpha', maxPayloadKg: 2 });
-    const droneB = await b.addDrone('operator-b', { name: 'Drone Beta', maxPayloadKg: 2 });
+    const a = new DeliveryService(stores.first, new DemoEscrowPayments());
+    const b = new DeliveryService(stores.second, new DemoEscrowPayments());
+    const droneA = await a.addDrone('operator-a', { droneModel: 'Drone Alpha', serialNumber: 'SN-A', registrationNumber: 'REG-A', maxPayloadKg: 2 });
+    const droneB = await b.addDrone('operator-b', { droneModel: 'Drone Beta', serialNumber: 'SN-B', registrationNumber: 'REG-B', maxPayloadKg: 2 });
     const order = await a.createOrder('customer', {
       origin: 'Almaty, Abay avenue 10', destination: 'Almaty, Dostyk avenue 20',
-      description: 'Sealed parcel', weightKg: 0.5,
+      packageDescription: 'Sealed parcel', packageWeightKg: 0.5,
     });
     await a.pay('customer', order.id);
     const results = await Promise.allSettled([
@@ -51,9 +51,12 @@ test('real demo adapter serializes acceptance across repository instances and pe
     assert.equal(rejection?.status === 'rejected' && rejection.reason.status, 409);
     const reopened = new DemoRepository(stores.first.path);
     const persisted = await reopened.get<Order>('orders', order.id);
-    assert.equal(persisted?.deliveryStatus, 'accepted');
-    assert.equal(persisted?.events.filter((event) => event.status === 'accepted').length, 1);
+    assert.equal(persisted?.status, 'assigned');
+    assert.equal(persisted?.events.filter((event) => event.status === 'assigned').length, 1);
     assert.deepEqual(await a.offers('operator-a'), []);
+    const payments = await reopened.list('payments');
+    assert.equal(payments.length, 1);
+    assert.equal((payments[0] as { paymentStatus: string }).paymentStatus, 'locked');
   } finally { await stores.cleanup(); }
 });
 
@@ -70,12 +73,14 @@ test('demo transaction errors roll back writes and release the queue for later t
   } finally { await stores.cleanup(); }
 });
 
-test('unconfigured escrow always fails closed with 503 and no pretend transaction result', async () => {
-  const adapter = new UnconfiguredPayments();
-  assert.equal(adapter.mode, 'unconfigured');
-  for (const operation of [() => adapter.hold({} as Order), () => adapter.release({} as Order)]) {
+test('escrow release and refund fail closed on unknown or missing locked payments', async () => {
+  const adapter = new DemoEscrowPayments();
+  const emptyTx = { get: async () => null, list: async () => [], set: async () => {} };
+  for (const operation of [
+    () => adapter.release(emptyTx, {} as Order, 'missing'), () => adapter.refund(emptyTx, {} as Order, 'missing'),
+  ]) {
     await assert.rejects(operation(), (error: unknown) => {
-      assert.equal((error as { status: number }).status, 503);
+      assert.equal((error as { status: number }).status, 409);
       return true;
     });
   }

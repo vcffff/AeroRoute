@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { DeliveryService } from '../src/lib/service';
-import type { Profile, Order, OrderInput } from '../src/lib/domain';
+import { DemoEscrowPayments } from '../src/lib/payments';
+import type { Profile, Order, OrderInput, OrderStatus } from '../src/lib/domain';
 import type { Repository, Transaction } from '../src/lib/repository';
 import type { PaymentAdapter } from '../src/lib/payments';
 
@@ -52,7 +53,7 @@ class MemoryRepository implements Repository {
   }
 }
 
-function fixture() {
+function fixture(payments?: PaymentAdapter) {
   const repository = new MemoryRepository();
   for (const [id, role] of [
     ['customer', 'customer'], ['other-customer', 'customer'],
@@ -61,21 +62,22 @@ function fixture() {
     const profile: Profile = { id, username: id, role, createdAt: new Date().toISOString() };
     repository.seed('profiles', id, profile);
   }
-  const calls = { hold: 0, release: 0 };
-  const payments: PaymentAdapter = {
+  const calls = { hold: 0, release: 0, refund: 0 };
+  const fake: PaymentAdapter = {
     mode: 'demo',
-    hold: async () => { calls.hold++; return 'demo_held'; },
-    release: async () => { calls.release++; return 'demo_released'; },
+    hold: async () => { calls.hold++; return 'payment-1'; },
+    release: async () => { calls.release++; },
+    refund: async () => { calls.refund++; },
   };
-  return { repository, service: new DeliveryService(repository, payments), calls };
+  return { repository, service: new DeliveryService(repository, payments ?? fake), calls };
 }
 
 const input = {
   origin: 'Almaty, Abay avenue 10, apartment 25',
   destination: 'Almaty, Dostyk avenue 20, apartment 41',
-  description: 'Private documents in a sealed envelope', weightKg: 0.5,
+  packageDescription: 'Private documents in a sealed envelope', packageWeightKg: 0.5,
 };
-const droneInput = { name: 'Courier One', maxPayloadKg: 2 };
+const droneInput = { droneModel: 'Courier One', serialNumber: 'SN-0000001', registrationNumber: 'REG-0000001', maxPayloadKg: 2 };
 
 async function rejectsStatus(action: Promise<unknown>, status: number) {
   await assert.rejects(action, (error: unknown) => {
@@ -117,31 +119,47 @@ test('two concurrent role selections cannot change or overwrite the winning role
 test('creation validates addresses, description and supported weights before saving', async () => {
   const { service, repository } = fixture();
   for (const invalid of [
-    { origin: '' }, { origin: '   ' }, { destination: '' }, { description: '' },
-    { weightKg: 0 }, { weightKg: -1 }, { weightKg: Number.NaN },
-    { weightKg: Number.POSITIVE_INFINITY }, { weightKg: 5.001 }, { weightKg: 10000 },
-    { weightKg: 'not-a-weight' },
-    { destination: input.origin }, { description: 'x'.repeat(1001) }, { origin: 'x'.repeat(241) },
-  ]) await rejectsStatus(service.createOrder('customer', { ...input, ...invalid } as OrderInput), 400);
+    { origin: '' }, { origin: '   ' }, { destination: '' }, { packageDescription: '' },
+    { packageWeightKg: 0 }, { packageWeightKg: -1 }, { packageWeightKg: Number.NaN },
+    { packageWeightKg: Number.POSITIVE_INFINITY }, { packageWeightKg: 5.001 }, { packageWeightKg: 10000 },
+    { packageWeightKg: 'not-a-weight' },
+    { destination: input.origin }, { packageDescription: 'x'.repeat(1001) }, { origin: 'x'.repeat(241) },
+    { priorityLevel: 'overnight' }, { originLat: 'north' },
+  ]) await rejectsStatus(service.createOrder('customer', { ...input, ...invalid } as unknown as OrderInput), 400);
   assert.deepEqual(await repository.list('orders'), []);
+  assert.deepEqual(await repository.list('addresses'), []);
   await rejectsStatus(service.createOrder('operator', input), 403);
 });
 
-test('the server derives price and ownership and creates unpaid orders', async () => {
-  const { service } = fixture();
+test('the server derives price, order number, addresses and ownership for unpaid orders', async () => {
+  const { service, repository } = fixture();
   const tampered = {
-    ...input, priceKzt: 1, customerId: 'other-customer', operatorId: 'operator',
-    deliveryStatus: 'searching', paymentStatus: 'demo_held',
+    ...input, priceAmount: 1, customerId: 'other-customer', operatorId: 'operator',
+    status: 'delivered', paymentStatus: 'completed',
   };
   const a = await service.createOrder('customer', tampered);
-  const otherPrice = { ...input, priceKzt: 999999999 };
+  const otherPrice = { ...input, priceAmount: 999999999 };
   const b = await service.createOrder('customer', otherPrice);
-  assert.ok(a.priceKzt > 0);
-  assert.equal(a.priceKzt, b.priceKzt);
+  assert.ok(a.priceAmount > 0);
+  assert.equal(a.priceAmount, b.priceAmount);
   assert.equal(a.customerId, 'customer');
   assert.equal(a.operatorId, null);
-  assert.equal(a.deliveryStatus, 'awaiting_payment');
-  assert.equal(a.paymentStatus, 'unpaid');
+  assert.equal(a.status, 'pending');
+  assert.equal(a.paymentStatus, 'pending');
+  assert.match(a.orderNumber, /^AR-\d{8}-[A-Z0-9]{6}$/);
+  assert.notEqual(a.orderNumber, b.orderNumber);
+  const addresses = await repository.list<{ id: string; label: string; addressText: string }>('addresses');
+  assert.equal(addresses.length, 4);
+  const pickup = addresses.find((address) => address.id === a.pickupAddressId);
+  const delivery = addresses.find((address) => address.id === a.deliveryAddressId);
+  assert.equal(pickup?.label, 'pickup');
+  assert.equal(delivery?.label, 'delivery');
+  assert.equal(pickup?.addressText, input.origin);
+  const located = await service.createOrder('customer', {
+    ...input, originLat: 43.238, originLng: 76.889, destinationLat: 43.218, destinationLng: 76.917,
+  });
+  assert.ok(located.estimatedDistanceKm > 2 && located.estimatedDistanceKm < 5);
+  assert.ok(located.estimatedDurationMinutes >= 5);
 });
 
 test('payment must be confirmed before an order is offered or accepted', async () => {
@@ -154,8 +172,9 @@ test('payment must be confirmed before an order is offered or accepted', async (
   await rejectsStatus(service.pay('other-customer', order.id), 403);
   assert.equal(calls.hold, 0);
   const paid = await service.pay('customer', order.id);
-  assert.equal(paid.paymentStatus, 'demo_held');
-  assert.equal(paid.deliveryStatus, 'searching');
+  assert.equal(paid.paymentStatus, 'locked');
+  assert.equal(paid.status, 'payment_locked');
+  assert.ok(paid.paymentId);
   assert.equal(calls.hold, 1);
   assert.equal((await service.offers('operator')).length, 1);
 });
@@ -167,9 +186,9 @@ test('offers expose only the public allowlist and no exact addresses or private 
   const offers = await service.offers('operator');
   assert.equal(offers.length, 1);
   assert.deepEqual(Object.keys(offers[0]).sort(),
-    ['id', 'weightKg', 'priceKzt', 'createdAt', 'originArea', 'destinationArea'].sort());
+    ['id', 'packageWeightKg', 'priceAmount', 'createdAt', 'originArea', 'destinationArea'].sort());
   const serialized = JSON.stringify(offers);
-  for (const secret of [input.origin, input.destination, input.description, 'apartment']) {
+  for (const secret of [input.origin, input.destination, input.packageDescription, 'apartment']) {
     assert.equal(serialized.includes(secret), false, `offer leaked ${secret}`);
   }
   await rejectsStatus(service.offers('customer'), 403);
@@ -186,44 +205,53 @@ test('customers and operators can list and read only their own orders', async ()
   await rejectsStatus(f.service.order('other-customer', owned.id), 403);
   await rejectsStatus(f.service.order('other-operator', owned.id), 403);
   await rejectsStatus(f.service.order('customer', other.id), 403);
-  assert.equal((await f.service.order('operator', owned.id)).description, input.description);
+  assert.equal((await f.service.order('operator', owned.id)).packageDescription, input.packageDescription);
 });
 
-test('drone creation and listing enforce operator role and payload validation', async () => {
+test('drone creation and listing enforce operator role, payload and unique numbers', async () => {
   const { service } = fixture();
   await rejectsStatus(service.addDrone('customer', droneInput), 403);
   await rejectsStatus(service.drones('customer'), 403);
-  for (const invalid of [{ name: '' }, { maxPayloadKg: 0 }, { maxPayloadKg: -1 },
-    { maxPayloadKg: Number.NaN }, { maxPayloadKg: 10000 }]) {
+  for (const invalid of [{ droneModel: '' }, { serialNumber: '' }, { registrationNumber: '' },
+    { maxPayloadKg: 0 }, { maxPayloadKg: -1 }, { maxPayloadKg: Number.NaN }, { maxPayloadKg: 10000 }]) {
     await rejectsStatus(service.addDrone('operator', { ...droneInput, ...invalid }), 400);
   }
   const tampered = { ...droneInput, operatorId: 'other-operator' };
   const drone = await service.addDrone('operator', tampered);
   assert.equal(drone.operatorId, 'operator');
-  assert.equal(drone.active, true);
+  assert.equal(drone.status, 'available');
+  assert.equal(drone.certificationStatus, 'certified');
+  assert.equal(drone.totalFlights, 0);
   assert.deepEqual((await service.drones('operator')).map((d) => d.id), [drone.id]);
   assert.deepEqual(await service.drones('other-operator'), []);
+  await rejectsStatus(service.addDrone('operator', droneInput), 409);
+  await rejectsStatus(service.addDrone('operator', { ...droneInput, serialNumber: 'SN-OTHER' }), 409);
+  await rejectsStatus(service.addDrone('other-operator', droneInput), 409);
 });
 
-test('acceptance requires an owned, active drone able to carry the parcel', async () => {
+test('acceptance requires an owned, available and certified drone able to carry the parcel', async () => {
   const { service, repository } = fixture();
   const order = await service.createOrder('customer', input);
   await service.pay('customer', order.id);
   const foreign = await service.addDrone('other-operator', droneInput);
-  const tooSmall = await service.addDrone('operator', { ...droneInput, maxPayloadKg: 0.1 });
-  const inactive = await service.addDrone('operator', droneInput);
-  repository.seed('drones', inactive.id, { ...inactive, active: false });
+  const tooSmall = await service.addDrone('operator', { ...droneInput, serialNumber: 'SN-2', registrationNumber: 'REG-2', maxPayloadKg: 0.1 });
+  const offline = await service.addDrone('operator', { ...droneInput, serialNumber: 'SN-3', registrationNumber: 'REG-3' });
+  repository.seed('drones', offline.id, { ...offline, status: 'offline' });
+  const uncertified = await service.addDrone('operator', { ...droneInput, serialNumber: 'SN-4', registrationNumber: 'REG-4' });
+  repository.seed('drones', uncertified.id, { ...uncertified, certificationStatus: 'pending' });
   await rejectsStatus(service.accept('customer', order.id, foreign.id), 403);
   await rejectsStatus(service.accept('operator', order.id, foreign.id), 403);
   await rejectsStatus(service.accept('operator', order.id, tooSmall.id), 409);
-  await rejectsStatus(service.accept('operator', order.id, inactive.id), 409);
-  assert.equal((await service.order('customer', order.id)).deliveryStatus, 'searching');
+  await rejectsStatus(service.accept('operator', order.id, offline.id), 409);
+  await rejectsStatus(service.accept('operator', order.id, uncertified.id), 409);
+  assert.equal((await service.order('customer', order.id)).status, 'payment_locked');
 });
 
 test('concurrent acceptance by different operators has exactly one winner and one conflict', async () => {
   const { service } = fixture();
   const drones = await Promise.all([
-    service.addDrone('operator', droneInput), service.addDrone('other-operator', droneInput),
+    service.addDrone('operator', droneInput),
+    service.addDrone('other-operator', { ...droneInput, serialNumber: 'SN-OTHER-1', registrationNumber: 'REG-OTHER-1' }),
   ]);
   const order = await service.createOrder('customer', input);
   await service.pay('customer', order.id);
@@ -237,10 +265,12 @@ test('concurrent acceptance by different operators has exactly one winner and on
   assert.equal(rejected.length, 1);
   assert.equal(rejected[0].reason.status, 409);
   const stored = await service.order('customer', order.id);
-  assert.equal(stored.deliveryStatus, 'accepted');
+  assert.equal(stored.status, 'assigned');
   assert.equal(stored.operatorId, fulfilled[0].value.operatorId);
-  assert.equal(stored.events.filter((event) => event.status === 'accepted').length, 1);
+  assert.equal(stored.events.filter((event) => event.status === 'assigned').length, 1);
   assert.equal((await service.offers('operator')).length, 0);
+  const drones_after = await service.drones(stored.operatorId as string);
+  assert.equal(drones_after.find((d) => d.id === stored.droneId)?.status, 'in_flight');
 });
 
 test('one drone cannot be assigned concurrently to two active deliveries', async () => {
@@ -261,20 +291,47 @@ test('one drone cannot be assigned concurrently to two active deliveries', async
 test('delivery transitions are sequential and only the assigned operator can advance', async () => {
   const f = fixture();
   const order = await acceptedOrder(f);
-  await rejectsStatus(f.service.advance('customer', order.id, 'picked_up'), 403);
-  await rejectsStatus(f.service.advance('other-operator', order.id, 'picked_up'), 403);
+  await rejectsStatus(f.service.advance('customer', order.id, 'in_transit'), 403);
+  await rejectsStatus(f.service.advance('other-operator', order.id, 'in_transit'), 403);
   await rejectsStatus(f.service.advance('operator', order.id, 'delivered'), 409);
-  await rejectsStatus(f.service.advance('operator', order.id, 'searching'), 409);
-  await rejectsStatus(f.service.advance('operator', order.id, 'received'), 409);
-  for (const status of ['picked_up', 'in_transit', 'delivered'] as const) {
+  await rejectsStatus(f.service.advance('operator', order.id, 'pending'), 409);
+  await rejectsStatus(f.service.advance('operator', order.id, 'cancelled'), 409);
+  await rejectsStatus(f.service.advance('operator', order.id, 'picked_up' as OrderStatus), 409);
+  for (const status of ['in_transit', 'delivered'] as const) {
     const updated = await f.service.advance('operator', order.id, status);
-    assert.equal(updated.deliveryStatus, status);
-    assert.equal(updated.paymentStatus, 'demo_held');
+    assert.equal(updated.status, status);
+    assert.equal(updated.paymentStatus, 'locked');
     assert.equal(updated.events.at(-1)?.actorId, 'operator');
     assert.equal(updated.events.at(-1)?.status, status);
     await rejectsStatus(f.service.advance('operator', order.id, status), 409);
   }
+  const delivered = await f.service.order('customer', order.id);
+  assert.ok(delivered.pickupTimeActual && delivered.deliveryTimeActual);
   assert.equal(f.calls.release, 0);
+});
+
+test('in-transit advance records tracking telemetry for drones that report coordinates', async () => {
+  const f = fixture();
+  const drone = await f.service.addDrone('operator', droneInput);
+  await f.repository.seed('drones', drone.id, { ...drone, currentLatitude: 43.238, currentLongitude: 76.889, currentAltitudeM: 120, currentBatteryPercent: 80 });
+  const order = await f.service.createOrder('customer', input);
+  await f.service.pay('customer', order.id);
+  await f.service.accept('operator', order.id, drone.id);
+  assert.deepEqual(await f.repository.list('orderTracking'), []);
+  await f.service.advance('operator', order.id, 'in_transit');
+  const tracking = await f.repository.list('orderTracking');
+  assert.equal(tracking.length, 1);
+  const entry = tracking[0] as { orderId: string; latitude: number; longitude: number; batteryPercent: number | null };
+  assert.equal(entry.orderId, order.id);
+  assert.equal(entry.latitude, 43.238);
+  assert.equal(entry.longitude, 76.889);
+  assert.equal(entry.batteryPercent, 80);
+  await f.service.advance('operator', order.id, 'delivered');
+  assert.equal((await f.repository.list('orderTracking')).length, 1);
+  const flown = (await f.service.drones('operator')).find((d) => d.id === drone.id);
+  assert.equal(flown?.status, 'available');
+  assert.equal(flown?.totalFlights, 1);
+  assert.ok(flown && flown.totalDistanceKm > 0);
 });
 
 test('only the owning customer can confirm delivered parcels and release held payment', async () => {
@@ -282,19 +339,41 @@ test('only the owning customer can confirm delivered parcels and release held pa
   const order = await acceptedOrder(f);
   await rejectsStatus(f.service.confirmReceipt('customer', order.id), 409);
   await rejectsStatus(f.service.confirmReceipt('operator', order.id), 403);
-  for (const status of ['picked_up', 'in_transit', 'delivered'] as const) {
+  for (const status of ['in_transit', 'delivered'] as const) {
     await f.service.advance('operator', order.id, status);
   }
   await rejectsStatus(f.service.confirmReceipt('operator', order.id), 403);
   await rejectsStatus(f.service.confirmReceipt('other-customer', order.id), 403);
   assert.equal(f.calls.release, 0);
   const received = await f.service.confirmReceipt('customer', order.id);
-  assert.equal(received.deliveryStatus, 'received');
-  assert.equal(received.paymentStatus, 'demo_released');
+  assert.equal(received.status, 'delivered');
+  assert.equal(received.paymentStatus, 'completed');
+  assert.ok(received.receiptConfirmedAt);
   assert.equal(received.events.at(-1)?.actorId, 'customer');
   assert.equal(f.calls.release, 1);
   await rejectsStatus(f.service.confirmReceipt('customer', order.id), 409);
   assert.equal(f.calls.release, 1);
+});
+
+test('customers can cancel unpaid orders and paid orders are refunded', async () => {
+  const f = fixture();
+  const unpaid = await f.service.createOrder('customer', input);
+  const cancelledUnpaid = await f.service.cancelOrder('customer', unpaid.id);
+  assert.equal(cancelledUnpaid.status, 'cancelled');
+  assert.equal(cancelledUnpaid.paymentStatus, 'pending');
+  assert.equal(f.calls.refund, 0);
+  await rejectsStatus(f.service.cancelOrder('customer', unpaid.id), 409);
+  const paid = await f.service.createOrder('customer', input);
+  await f.service.pay('customer', paid.id);
+  const cancelledPaid = await f.service.cancelOrder('customer', paid.id);
+  assert.equal(cancelledPaid.status, 'cancelled');
+  assert.equal(cancelledPaid.paymentStatus, 'refunded');
+  assert.equal(f.calls.refund, 1);
+  assert.equal((await f.service.offers('operator')).length, 0);
+  await rejectsStatus(f.service.cancelOrder('operator', paid.id), 403);
+  const assigned = await acceptedOrder(f);
+  await rejectsStatus(f.service.cancelOrder('customer', assigned.id), 409);
+  assert.equal(f.calls.refund, 1);
 });
 
 test('repeated or concurrent payments do not hold funds twice', async () => {
@@ -313,7 +392,7 @@ test('repeated or concurrent payments do not hold funds twice', async () => {
 test('concurrent receipt confirmations release payment exactly once', async () => {
   const f = fixture();
   const order = await acceptedOrder(f);
-  for (const status of ['picked_up', 'in_transit', 'delivered'] as const) {
+  for (const status of ['in_transit', 'delivered'] as const) {
     await f.service.advance('operator', order.id, status);
   }
   const results = await Promise.allSettled([
@@ -323,27 +402,62 @@ test('concurrent receipt confirmations release payment exactly once', async () =
   const rejected = results.find((result) => result.status === 'rejected');
   assert.equal(rejected?.status === 'rejected' && rejected.reason.status, 409);
   assert.equal(f.calls.release, 1);
-  assert.equal((await f.service.order('customer', order.id)).events.filter((event) => event.status === 'received').length, 1);
+  assert.ok((await f.service.order('customer', order.id)).receiptConfirmedAt);
 });
 
 test('failed payment or release adapters leave order state unchanged', async () => {
   const f = fixture();
   const unavailable: PaymentAdapter = {
-    mode: 'unconfigured', hold: async () => { throw new Error('Escrow not configured'); },
+    mode: 'firestore', hold: async () => { throw new Error('Escrow not configured'); },
     release: async () => { throw new Error('Escrow not configured'); },
+    refund: async () => { throw new Error('Escrow not configured'); },
   };
   const service = new DeliveryService(f.repository, unavailable);
   const unpaid = await service.createOrder('customer', input);
   await assert.rejects(service.pay('customer', unpaid.id));
   const stillUnpaid = await service.order('customer', unpaid.id);
-  assert.equal(stillUnpaid.paymentStatus, 'unpaid');
-  assert.equal(stillUnpaid.deliveryStatus, 'awaiting_payment');
+  assert.equal(stillUnpaid.paymentStatus, 'pending');
+  assert.equal(stillUnpaid.status, 'pending');
   const accepted = await acceptedOrder(f);
-  for (const status of ['picked_up', 'in_transit', 'delivered'] as const) {
+  for (const status of ['in_transit', 'delivered'] as const) {
     await f.service.advance('operator', accepted.id, status);
   }
   await assert.rejects(service.confirmReceipt('customer', accepted.id));
   const stillDelivered: Order = await service.order('customer', accepted.id);
-  assert.equal(stillDelivered.deliveryStatus, 'delivered');
-  assert.equal(stillDelivered.paymentStatus, 'demo_held');
+  assert.equal(stillDelivered.status, 'delivered');
+  assert.equal(stillDelivered.paymentStatus, 'locked');
+});
+
+test('demo escrow records the full payment lifecycle in the payments collection', async () => {
+  const { repository, service } = fixture(new DemoEscrowPayments());
+  const drone = await service.addDrone('operator', droneInput);
+  const order = await service.createOrder('customer', input);
+  const paid = await service.pay('customer', order.id);
+  await service.accept('operator', order.id, drone.id);
+  let records = await repository.list('payments');
+  assert.equal(records.length, 1);
+  const locked = records[0] as { id: string; paymentStatus: string; amount: number; platformFeeAmount: number; operatorPayoutAmount: number; completedAt: string | null; payeeId: string | null };
+  assert.equal(locked.id, paid.paymentId);
+  assert.equal(locked.paymentStatus, 'locked');
+  assert.equal(locked.amount, paid.priceAmount);
+  const fee = Math.round(paid.priceAmount * 0.1 * 10000) / 10000;
+  assert.equal(locked.platformFeeAmount, fee);
+  assert.equal(locked.operatorPayoutAmount, paid.priceAmount - fee);
+  assert.equal(locked.completedAt, null);
+  assert.equal(locked.payeeId, null);
+  for (const status of ['in_transit', 'delivered'] as const) {
+    await service.advance('operator', order.id, status);
+  }
+  await service.confirmReceipt('customer', order.id);
+  records = await repository.list('payments');
+  const released = records[0] as { paymentStatus: string; completedAt: string | null; payeeId: string | null };
+  assert.equal(released.paymentStatus, 'completed');
+  assert.ok(released.completedAt);
+  assert.equal(released.payeeId, 'operator');
+  const refundCase = await service.createOrder('customer', input);
+  await service.pay('customer', refundCase.id);
+  await service.cancelOrder('customer', refundCase.id);
+  records = await repository.list('payments');
+  assert.equal(records.length, 2);
+  assert.equal((records as { paymentStatus: string }[]).some((record) => record.paymentStatus === 'refunded'), true);
 });

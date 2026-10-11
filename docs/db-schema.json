@@ -1,0 +1,566 @@
+{
+  "tables": [
+    {
+      "name": "REVIEWS",
+      "columns": [
+        {
+          "name": "review_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "nullable": false
+        },
+        {
+          "name": "order_id",
+          "type": "uuid",
+          "foreignKey": true,
+          "nullable": false
+        },
+        {
+          "name": "reviewer_id",
+          "type": "uuid",
+          "foreignKey": true,
+          "nullable": false
+        },
+        {
+          "name": "reviewee_id",
+          "type": "uuid",
+          "foreignKey": true,
+          "nullable": false
+        },
+        {
+          "name": "drone_id",
+          "type": "uuid",
+          "foreignKey": true,
+          "nullable": false
+        },
+        { "name": "rating", "type": "integer", "nullable": false },
+        { "name": "review_text", "type": "text", "nullable": true },
+        {
+          "name": "review_type",
+          "type": "enum",
+          "values": ["customer_to_operator", "operator_to_customer"],
+          "nullable": false
+        },
+        { "name": "is_public", "type": "boolean", "nullable": false },
+        { "name": "created_at", "type": "timestamp", "nullable": false }
+      ]
+    },
+    {
+      "name": "ORDERS",
+      "columns": [
+        {
+          "name": "order_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "nullable": false
+        },
+        {
+          "name": "customer_id",
+          "type": "uuid",
+          "foreignKey": true,
+          "nullable": false
+        },
+        {
+          "name": "drone_id",
+          "type": "uuid",
+          "foreignKey": true,
+          "nullable": true
+        },
+        {
+          "name": "operator_id",
+          "type": "uuid",
+          "foreignKey": true,
+          "nullable": true
+        },
+        {
+          "name": "pickup_address_id",
+          "type": "uuid",
+          "foreignKey": true,
+          "nullable": false
+        },
+        {
+          "name": "delivery_address_id",
+          "type": "uuid",
+          "foreignKey": true,
+          "nullable": false
+        },
+        {
+          "name": "order_number",
+          "type": "varchar",
+          "maxLength": 50,
+          "unique": true,
+          "nullable": false
+        },
+        {
+          "name": "package_weight_kg",
+          "type": "decimal",
+          "precision": 10,
+          "scale": 2,
+          "nullable": false
+        },
+        { "name": "package_dimensions_cm", "type": "json", "nullable": false },
+        { "name": "package_description", "type": "text", "nullable": true },
+        { "name": "special_instructions", "type": "text", "nullable": true },
+        {
+          "name": "priority_level",
+          "type": "enum",
+          "values": ["standard", "express", "urgent"],
+          "nullable": false
+        },
+        {
+          "name": "estimated_distance_km",
+          "type": "decimal",
+          "precision": 10,
+          "scale": 2,
+          "nullable": false
+        },
+        {
+          "name": "estimated_duration_minutes",
+          "type": "integer",
+          "nullable": false
+        },
+        {
+          "name": "status",
+          "type": "enum",
+          "values": [
+            "pending",
+            "payment_locked",
+            "assigned",
+            "in_transit",
+            "delivered",
+            "cancelled",
+            "failed"
+          ],
+          "nullable": false
+        },
+        {
+          "name": "price_amount",
+          "type": "decimal",
+          "precision": 12,
+          "scale": 2,
+          "nullable": false
+        },
+        {
+          "name": "price_currency",
+          "type": "varchar",
+          "maxLength": 10,
+          "nullable": false
+        },
+        {
+          "name": "smart_contract_address",
+          "type": "varchar",
+          "maxLength": 64,
+          "nullable": false
+        },
+        {
+          "name": "escrow_transaction_signature",
+          "type": "varchar",
+          "maxLength": 128,
+          "nullable": true
+        },
+        {
+          "name": "pickup_time_requested",
+          "type": "timestamp",
+          "nullable": true
+        },
+        { "name": "pickup_time_actual", "type": "timestamp", "nullable": true },
+        {
+          "name": "delivery_time_estimated",
+          "type": "timestamp",
+          "nullable": true
+        },
+        {
+          "name": "delivery_time_actual",
+          "type": "timestamp",
+          "nullable": true
+        },
+        { "name": "created_at", "type": "timestamp", "nullable": false },
+        { "name": "updated_at", "type": "timestamp", "nullable": false }
+      ]
+    },
+    {
+      "name": "DRONES",
+      "columns": [
+        {
+          "name": "drone_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "nullable": false
+        },
+        {
+          "name": "operator_id",
+          "type": "uuid",
+          "foreignKey": true,
+          "nullable": false
+        },
+        {
+          "name": "drone_model",
+          "type": "varchar",
+          "maxLength": 100,
+          "nullable": false
+        },
+        {
+          "name": "manufacturer",
+          "type": "varchar",
+          "maxLength": 100,
+          "nullable": false
+        },
+        {
+          "name": "serial_number",
+          "type": "varchar",
+          "maxLength": 100,
+          "unique": true,
+          "nullable": false
+        },
+        {
+          "name": "registration_number",
+          "type": "varchar",
+          "maxLength": 100,
+          "unique": true,
+          "nullable": false
+        },
+        {
+          "name": "max_payload_kg",
+          "type": "decimal",
+          "precision": 10,
+          "scale": 2,
+          "nullable": false
+        },
+        {
+          "name": "max_range_km",
+          "type": "decimal",
+          "precision": 10,
+          "scale": 2,
+          "nullable": false
+        },
+        {
+          "name": "battery_capacity_mah",
+          "type": "integer",
+          "nullable": false
+        },
+        {
+          "name": "current_battery_percent",
+          "type": "integer",
+          "nullable": false
+        },
+        {
+          "name": "status",
+          "type": "enum",
+          "values": [
+            "available",
+            "in_flight",
+            "charging",
+            "maintenance",
+            "offline"
+          ],
+          "nullable": false
+        },
+        {
+          "name": "certification_status",
+          "type": "enum",
+          "values": ["pending", "certified", "expired", "revoked"],
+          "nullable": false
+        },
+        {
+          "name": "insurance_policy_number",
+          "type": "varchar",
+          "maxLength": 100,
+          "nullable": true
+        },
+        { "name": "insurance_expiry_date", "type": "date", "nullable": true },
+        {
+          "name": "current_latitude",
+          "type": "decimal",
+          "precision": 10,
+          "scale": 8,
+          "nullable": true
+        },
+        {
+          "name": "current_longitude",
+          "type": "decimal",
+          "precision": 11,
+          "scale": 8,
+          "nullable": true
+        },
+        {
+          "name": "current_altitude_m",
+          "type": "decimal",
+          "precision": 10,
+          "scale": 2,
+          "nullable": true
+        },
+        { "name": "last_maintenance_date", "type": "date", "nullable": true },
+        { "name": "next_maintenance_due", "type": "date", "nullable": true },
+        { "name": "total_flights", "type": "integer", "nullable": false },
+        {
+          "name": "total_distance_km",
+          "type": "decimal",
+          "precision": 12,
+          "scale": 2,
+          "nullable": false
+        },
+        { "name": "created_at", "type": "timestamp", "nullable": false },
+        { "name": "updated_at", "type": "timestamp", "nullable": false }
+      ]
+    },
+    {
+      "name": "DRONE_AVAILABILITY_ZONES",
+      "columns": [
+        {
+          "name": "zone_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "nullable": false
+        },
+        {
+          "name": "drone_id",
+          "type": "uuid",
+          "foreignKey": true,
+          "nullable": false
+        },
+        {
+          "name": "zone_name",
+          "type": "varchar",
+          "maxLength": 150,
+          "nullable": false
+        },
+        {
+          "name": "center_latitude",
+          "type": "decimal",
+          "precision": 10,
+          "scale": 8,
+          "nullable": false
+        },
+        {
+          "name": "center_longitude",
+          "type": "decimal",
+          "precision": 11,
+          "scale": 8,
+          "nullable": false
+        },
+        {
+          "name": "radius_km",
+          "type": "decimal",
+          "precision": 10,
+          "scale": 2,
+          "nullable": false
+        },
+        { "name": "is_active", "type": "boolean", "nullable": false },
+        { "name": "created_at", "type": "timestamp", "nullable": false }
+      ]
+    },
+    {
+      "name": "INCIDENTS",
+      "columns": [
+        {
+          "name": "incident_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "nullable": false
+        },
+        {
+          "name": "order_id",
+          "type": "uuid",
+          "foreignKey": true,
+          "nullable": true
+        },
+        {
+          "name": "drone_id",
+          "type": "uuid",
+          "foreignKey": true,
+          "nullable": false
+        },
+        {
+          "name": "reported_by_user_id",
+          "type": "uuid",
+          "foreignKey": true,
+          "nullable": false
+        },
+        {
+          "name": "incident_type",
+          "type": "enum",
+          "values": [
+            "delivery_failed",
+            "drone_malfunction",
+            "accident",
+            "weather_issue",
+            "security_issue"
+          ],
+          "nullable": false
+        },
+        {
+          "name": "severity",
+          "type": "enum",
+          "values": ["low", "medium", "high", "critical"],
+          "nullable": false
+        },
+        { "name": "description", "type": "text", "nullable": false },
+        {
+          "name": "latitude",
+          "type": "decimal",
+          "precision": 10,
+          "scale": 8,
+          "nullable": false
+        },
+        {
+          "name": "longitude",
+          "type": "decimal",
+          "precision": 11,
+          "scale": 8,
+          "nullable": false
+        },
+        {
+          "name": "resolution_status",
+          "type": "enum",
+          "values": ["open", "investigating", "resolved", "closed"],
+          "nullable": false
+        },
+        { "name": "resolution_notes", "type": "text", "nullable": true },
+        { "name": "created_at", "type": "timestamp", "nullable": false },
+        { "name": "resolved_at", "type": "timestamp", "nullable": true }
+      ]
+    },
+    {
+      "name": "PAYMENTS",
+      "columns": [
+        {
+          "name": "payment_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "nullable": false
+        },
+        {
+          "name": "order_id",
+          "type": "uuid",
+          "foreignKey": true,
+          "nullable": false
+        },
+        {
+          "name": "payer_id",
+          "type": "uuid",
+          "foreignKey": true,
+          "nullable": false
+        },
+        {
+          "name": "payee_id",
+          "type": "uuid",
+          "foreignKey": true,
+          "nullable": false
+        },
+        {
+          "name": "amount",
+          "type": "decimal",
+          "precision": 12,
+          "scale": 2,
+          "nullable": false
+        },
+        {
+          "name": "currency",
+          "type": "varchar",
+          "maxLength": 10,
+          "nullable": false
+        },
+        {
+          "name": "payment_type",
+          "type": "enum",
+          "values": ["order_payment", "refund", "bonus", "penalty"],
+          "nullable": false
+        },
+        {
+          "name": "payment_status",
+          "type": "enum",
+          "values": ["pending", "locked", "completed", "refunded", "failed"],
+          "nullable": false
+        },
+        {
+          "name": "smart_contract_address",
+          "type": "varchar",
+          "maxLength": 64,
+          "nullable": false
+        },
+        {
+          "name": "lock_transaction_signature",
+          "type": "varchar",
+          "maxLength": 128,
+          "nullable": true
+        },
+        {
+          "name": "release_transaction_signature",
+          "type": "varchar",
+          "maxLength": 128,
+          "nullable": true
+        },
+        {
+          "name": "platform_fee_amount",
+          "type": "decimal",
+          "precision": 12,
+          "scale": 2,
+          "nullable": false
+        },
+        {
+          "name": "operator_payout_amount",
+          "type": "decimal",
+          "precision": 12,
+          "scale": 2,
+          "nullable": false
+        },
+        { "name": "created_at", "type": "timestamp", "nullable": false },
+        { "name": "completed_at", "type": "timestamp", "nullable": true }
+      ]
+    },
+    {
+      "name": "ORDER_TRACKING",
+      "columns": [
+        {
+          "name": "tracking_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "nullable": false
+        },
+        {
+          "name": "order_id",
+          "type": "uuid",
+          "foreignKey": true,
+          "nullable": false
+        },
+        {
+          "name": "latitude",
+          "type": "decimal",
+          "precision": 10,
+          "scale": 8,
+          "nullable": false
+        },
+        {
+          "name": "longitude",
+          "type": "decimal",
+          "precision": 11,
+          "scale": 8,
+          "nullable": false
+        },
+        {
+          "name": "altitude_m",
+          "type": "decimal",
+          "precision": 10,
+          "scale": 2,
+          "nullable": true
+        },
+        {
+          "name": "speed_kmh",
+          "type": "decimal",
+          "precision": 10,
+          "scale": 2,
+          "nullable": true
+        },
+        { "name": "battery_percent", "type": "integer", "nullable": true },
+        { "name": "heading_degrees", "type": "integer", "nullable": true },
+        {
+          "name": "status_update",
+          "type": "varchar",
+          "maxLength": 255,
+          "nullable": true
+        },
+        { "name": "timestamp", "type": "timestamp", "nullable": false }
+      ]
+    }
+  ]
+}

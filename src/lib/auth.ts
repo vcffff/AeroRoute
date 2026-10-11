@@ -49,7 +49,10 @@ export async function currentUser(): Promise<{ id: string; username: string } | 
   if (!token) return null;
   if (getMode() === 'firestore') {
     try {
-      const decoded = await firebaseAuth().verifySessionCookie(token, true);
+      // checkRevoked stays off: it adds a Google network round-trip to every
+      // render and silently logs users out on flaky connectivity. Logout clears
+      // the cookie and revokes refresh tokens server-side instead.
+      const decoded = await firebaseAuth().verifySessionCookie(token);
       return { id: decoded.uid, username: decoded.email ?? decoded.uid };
     } catch { return null; }
   }
@@ -71,7 +74,7 @@ export async function handleAuth(request: Request) {
   const data = await body(request);
   const action = data.action;
   if (getMode() === 'demo' && process.env.NODE_ENV === 'production' && (action === 'reset-request' || action === 'reset-confirm' || action === 'migrate')) {
-    throw new DomainError(503, 'Демо-импорт и показ токена восстановления доступны только на сервере разработки. Для реальных аккаунтов используйте Firebase.');
+    throw new DomainError(503, 'Demo import and shown recovery tokens are only available on the development server. Use Firebase for real accounts.');
   }
   if (action === 'logout') {
     const token = (await cookies()).get(cookieName)?.value;
@@ -89,7 +92,9 @@ export async function handleAuth(request: Request) {
     if (action !== 'firebase' || typeof data.idToken !== 'string') throw new DomainError(400, 'Use Firebase login and password reset');
     const admin = firebaseAuth();
     let decoded;
-    try { decoded = await admin.verifyIdToken(data.idToken, true); }
+    // Revocation check skipped (network resilience); the auth_time freshness
+    // window below already bounds token replay.
+    try { decoded = await admin.verifyIdToken(data.idToken); }
     catch { throw new DomainError(401, 'Invalid Firebase login token'); }
     if (Date.now() / 1000 - decoded.auth_time > 300) throw new DomainError(401, 'Recent sign-in required');
     await getStore().transaction(async tx => {

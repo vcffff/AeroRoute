@@ -30,6 +30,9 @@ dist-ssr
 !.env.example
 *.tsbuildinfo
 
+# Never commit service-account keys anywhere in the repo
+*firebase-adminsdk*.json
+
 # Next.js and local demo storage
 .next/
 .aeroroute/

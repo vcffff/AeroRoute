@@ -70,14 +70,14 @@ test('HTTP role redirects, authorization, offer privacy, acceptance race and del
   const csrf = await customer.request('/api/orders', 'POST', {}, 'https://untrusted.example');
   assert.equal(csrf.response.status, 403);
 
-  const droneA = await operatorA.ok<Drone>('/api/drones', 'POST', { name: 'HTTP Drone Alpha', maxPayloadKg: 2 });
-  const droneB = await operatorB.ok<Drone>('/api/drones', 'POST', { name: 'HTTP Drone Beta', maxPayloadKg: 2 });
+  const droneA = await operatorA.ok<Drone>('/api/drones', 'POST', { droneModel: 'HTTP Drone Alpha', serialNumber: `SN-${unique}-A`, registrationNumber: `REG-${unique}-A`, maxPayloadKg: 2 });
+  const droneB = await operatorB.ok<Drone>('/api/drones', 'POST', { droneModel: 'HTTP Drone Beta', serialNumber: `SN-${unique}-B`, registrationNumber: `REG-${unique}-B`, maxPayloadKg: 2 });
   const order = await customer.ok<Order>('/api/orders', 'POST', {
     origin: 'Almaty, secret source 10', destination: 'Almaty, secret recipient 20',
-    description: 'Private HTTP test parcel', weightKg: 0.5, priceKzt: 1,
+    packageDescription: 'Private HTTP test parcel', packageWeightKg: 0.5, priceAmount: 1,
   });
-  assert.ok(order.priceKzt > 1);
-  assert.equal(order.paymentStatus, 'unpaid');
+  assert.ok(order.priceAmount > 1);
+  assert.equal(order.paymentStatus, 'pending');
   assert.equal((await stranger.request(`/api/orders/${order.id}`)).response.status, 403);
   assert.equal((await operatorA.request(`/api/orders/${order.id}`)).response.status, 403);
   assert.equal((await operatorA.request(`/api/orders/${order.id}/action`, 'POST', { action: 'accept', droneId: droneA.id })).response.status, 409);
@@ -85,7 +85,7 @@ test('HTTP role redirects, authorization, offer privacy, acceptance race and del
   const offers = await operatorA.ok<Offer[]>('/api/offers');
   const offer = offers.find((candidate) => candidate.id === order.id);
   assert.ok(offer);
-  assert.deepEqual(Object.keys(offer).sort(), ['id', 'createdAt', 'weightKg', 'priceKzt', 'originArea', 'destinationArea'].sort());
+  assert.deepEqual(Object.keys(offer).sort(), ['id', 'createdAt', 'packageWeightKg', 'priceAmount', 'originArea', 'destinationArea'].sort());
   const acceptance = await Promise.all([
     operatorA.request<Order>(`/api/orders/${order.id}/action`, 'POST', { action: 'accept', droneId: droneA.id }),
     operatorB.request<Order>(`/api/orders/${order.id}/action`, 'POST', { action: 'accept', droneId: droneB.id }),
@@ -94,16 +94,17 @@ test('HTTP role redirects, authorization, offer privacy, acceptance race and del
   const winner = acceptance[0].response.status === 200 ? operatorA : operatorB;
   const loser = winner === operatorA ? operatorB : operatorA;
   assert.equal((await loser.request(`/api/orders/${order.id}`)).response.status, 403);
-  for (const status of ['picked_up', 'in_transit', 'delivered']) {
+  for (const status of ['in_transit', 'delivered']) {
     const advanced = await winner.ok<Order>(`/api/orders/${order.id}/action`, 'POST', { action: 'advance', status });
-    assert.equal(advanced.deliveryStatus, status);
-    assert.equal(advanced.paymentStatus, 'demo_held');
+    assert.equal(advanced.status, status);
+    assert.equal(advanced.paymentStatus, 'locked');
   }
   assert.equal((await winner.request(`/api/orders/${order.id}/action`, 'POST', { action: 'confirm' })).response.status, 403);
   const received = await customer.ok<Order>(`/api/orders/${order.id}/action`, 'POST', { action: 'confirm' });
-  assert.equal(received.deliveryStatus, 'received');
-  assert.equal(received.paymentStatus, 'demo_released');
+  assert.equal(received.status, 'delivered');
+  assert.equal(received.paymentStatus, 'completed');
+  assert.ok(received.receiptConfirmedAt);
 
   assert.equal((await customer.request(`/api/orders/${order.id}/action`, 'POST', { action: 'confirm' })).response.status, 409);
-  assert.equal((await winner.request(`/api/orders/${order.id}/action`, 'POST', { action: 'advance', status: 'picked_up' })).response.status, 409);
+  assert.equal((await winner.request(`/api/orders/${order.id}/action`, 'POST', { action: 'advance', status: 'pending' })).response.status, 409);
 });
