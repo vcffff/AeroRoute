@@ -1,13 +1,14 @@
-Submission to [Hackathon Name] — AeroRoute
-Drone delivery. Open network. Transparent payments.
-AeroRoute is a drone-delivery concept that connects people sending small parcels with independent drone operators. Our goal is to make requesting a delivery as straightforward as booking a ride, with real-time tracking and Solana-based escrow settlement.
-Submission by:
+# Submission to 2025 Solana Colosseum Submission by:
 
-- Roman Jaishibekov — Instagram
-- Batumukhammed Beksultan — X · GitHub
-- Kanat Aldabek — Instagram · Behance
-- Galymbek Muratbay — Behance · Portfolio
-- Magzhan Skakov — GitHub · X
+Roman Jaishibekov (https://www.instagram.com/mrromenion/) 
+
+Batumukhammed Beksultan (https://x.com/cil_mann41719) (https://github.com/BATU994)
+
+Kanat Aldabek (https://www.instagram.com/kaneke_design/) (https://www.behance.net/45ba0a97)
+
+Galymbek Muratbay (https://www.behance.net/galymbemuratba) (https://smart-directions-578401.framer.app/)
+
+Magzhan Skakov (https://github.com/vcffff) (https://x.com/MagzhanSka21914)
   Resources
 - Presentation: [Add AeroRoute presentation URL]
 - Platform demo: [Add AeroRoute demo URL]
