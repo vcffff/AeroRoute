@@ -1,2 +1,16 @@
-import {redirect} from 'next/navigation';import {currentUser} from '@/lib/auth';import {DeliveryService} from '@/lib/service';import {getStore} from '@/lib/store';import {getPayments} from '@/lib/payments';import {getMode} from '@/lib/config';import {Customer} from '@/components/deliveries';
-export default async function CustomerPage(){const user=await currentUser();if(!user)redirect('/login');const service=new DeliveryService(getStore(),getPayments());const profile=await service.profile(user.id);if(profile.role!=='customer')redirect(profile.role?'/'+profile.role:'/choose-role');const orders=await service.orders(user.id);return <Customer username={user.username} mode={getMode()} orders={orders}/>;}
+import { redirect } from 'next/navigation';
+import { currentUser } from '@/lib/auth';
+import { DeliveryService } from '@/lib/service';
+import { getStore } from '@/lib/store';
+import { getPayments } from '@/lib/payments';
+import { getMode } from '@/lib/config';
+import { Customer } from '@/components/deliveries';
+export default async function CustomerPage() {
+  const user = await currentUser();
+  if (!user) redirect('/login');
+  const service = new DeliveryService(getStore(), getPayments());
+  const profile = await service.profile(user.id);
+  if (profile.role !== 'customer') redirect(profile.role ? '/' + profile.role : '/choose-role');
+  const orders = await service.orders(user.id);
+  return <Customer username={user.username} mode={getMode()} orders={orders} />;
+}

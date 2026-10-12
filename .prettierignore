@@ -1,0 +1,11 @@
+node_modules
+.next
+.omx
+.aeroroute
+.vercel
+legacy
+dist
+next-env.d.ts
+package-lock.json
+docs/db-schema.json
+.aeroroute-secrets

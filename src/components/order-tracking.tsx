@@ -1,3 +1,168 @@
 'use client';
-import {useEffect,useState} from 'react';import {orderLabels,paymentLabels,formatPrice,type Order,type Role,type OrderStatus} from '@/lib/domain';import {api} from '@/lib/api-client';import {Shell,message} from './shell';
-export function OrderTracking({initial,role,username,mode}:{initial:Order;role:Role;username:string;mode:string}){const [order,setOrder]=useState(initial);const [error,setError]=useState('');const [busy,setBusy]=useState(false);const [lastUpdate,setLastUpdate]=useState('');useEffect(()=>{let live=true;async function poll(){try{const value=await api<Order>('/api/orders/'+initial.id);if(live){setOrder(value);setLastUpdate(new Date().toLocaleTimeString('en-GB'));setError('');}}catch(e){if(live)setError(message(e));}}const timer=setInterval(poll,5000);return()=>{live=false;clearInterval(timer);};},[initial.id]);async function action(body:unknown){setBusy(true);setError('');try{setOrder(await api<Order>('/api/orders/'+order.id+'/action',body));}catch(e){setError(message(e));}finally{setBusy(false);}}const next:Record<string,OrderStatus>={assigned:'in_transit',in_transit:'delivered'};return <Shell username={username} mode={mode}><span className="pill">Delivery {order.orderNumber}</span><h1>{orderLabels[order.status]}</h1><p className="muted">Stages refresh every 5 seconds. {lastUpdate&&'Checked: '+lastUpdate}. Drone telemetry is recorded to the tracking log.</p><div className="grid"><section className="card"><h2>Route and parcel</h2><p><strong>From:</strong> {order.origin}</p><p><strong>To:</strong> {order.destination}</p><p>{order.packageDescription} · {order.packageWeightKg} kg · {order.estimatedDistanceKm} km</p><hr/><div className="row between"><span>Server-calculated price</span><span className="price">{formatPrice(order.priceAmount)}</span></div><p><span className="pill">Payment: {paymentLabels[order.paymentStatus]}</span></p>{role==='customer'&&order.status==='pending'&&<><p className="muted">Payment is demo escrow: funds are held conditionally, no real SOL moves.</p><button disabled={busy} onClick={()=>action({action:'pay'})}>Confirm demo payment</button><button className="secondary" disabled={busy} onClick={()=>action({action:'cancel'})}>Cancel order</button></>}{role==='customer'&&order.status==='payment_locked'&&<button className="secondary" disabled={busy} onClick={()=>action({action:'cancel'})}>Cancel order with refund</button>}{role==='operator'&&next[order.status]&&<><p className="muted">Update the stage only after the matching action. This is a manual update, not a drone command.</p><button disabled={busy} onClick={()=>action({action:'advance',status:next[order.status]})}>{orderLabels[next[order.status]]}</button></>}{role==='customer'&&order.status==='delivered'&&!order.receiptConfirmedAt&&<><p className="muted">Confirm only after receiving the parcel. This releases the demo payout to the operator.</p><button disabled={busy} onClick={()=>action({action:'confirm'})}>Confirm parcel receipt</button></>}{role==='customer'&&order.status==='delivered'&&order.receiptConfirmedAt&&<p className="muted">Receipt confirmed. Thank you!</p>}{role==='operator'&&order.status==='delivered'&&!order.receiptConfirmedAt&&<p className="muted">Waiting for customer confirmation. The operator cannot release the payout themselves.</p>}{error&&<p role="alert" className="error">{error}</p>}{busy&&<p role="status">Saving…</p>}</section><section className="card"><h2>Delivery history</h2><ol className="timeline">{order.events.map((event,index)=><li key={index}><strong>{orderLabels[event.status]}</strong><p className="muted">{new Date(event.at).toLocaleString('en-GB')}</p></li>)}</ol></section></div></Shell>}
+import { useEffect, useState } from 'react';
+import {
+  orderLabels,
+  paymentLabels,
+  formatPrice,
+  type Order,
+  type Role,
+  type OrderStatus,
+} from '@/lib/domain';
+import { api } from '@/lib/api-client';
+import { Shell, message } from './shell';
+export function OrderTracking({
+  initial,
+  role,
+  username,
+  mode,
+}: {
+  initial: Order;
+  role: Role;
+  username: string;
+  mode: string;
+}) {
+  const [order, setOrder] = useState(initial);
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [lastUpdate, setLastUpdate] = useState('');
+  useEffect(() => {
+    let live = true;
+    async function poll() {
+      try {
+        const value = await api<Order>('/api/orders/' + initial.id);
+        if (live) {
+          setOrder(value);
+          setLastUpdate(new Date().toLocaleTimeString('en-GB'));
+          setError('');
+        }
+      } catch (e) {
+        if (live) setError(message(e));
+      }
+    }
+    const timer = setInterval(poll, 5000);
+    return () => {
+      live = false;
+      clearInterval(timer);
+    };
+  }, [initial.id]);
+  async function action(body: unknown) {
+    setBusy(true);
+    setError('');
+    try {
+      setOrder(await api<Order>('/api/orders/' + order.id + '/action', body));
+    } catch (e) {
+      setError(message(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+  const next: Record<string, OrderStatus> = { assigned: 'in_transit', in_transit: 'delivered' };
+  return (
+    <Shell username={username} mode={mode}>
+      <span className="pill">Delivery {order.orderNumber}</span>
+      <h1>{orderLabels[order.status]}</h1>
+      <p className="muted">
+        Stages refresh every 5 seconds. {lastUpdate && 'Checked: ' + lastUpdate}. Drone telemetry is
+        recorded to the tracking log.
+      </p>
+      <div className="grid">
+        <section className="card">
+          <h2>Route and parcel</h2>
+          <p>
+            <strong>From:</strong> {order.origin}
+          </p>
+          <p>
+            <strong>To:</strong> {order.destination}
+          </p>
+          <p>
+            {order.packageDescription} · {order.packageWeightKg} kg · {order.estimatedDistanceKm} km
+          </p>
+          <hr />
+          <div className="row between">
+            <span>Server-calculated price</span>
+            <span className="price">{formatPrice(order.priceAmount)}</span>
+          </div>
+          <p>
+            <span className="pill">Payment: {paymentLabels[order.paymentStatus]}</span>
+          </p>
+          {role === 'customer' && order.status === 'pending' && (
+            <>
+              <p className="muted">
+                Payment is demo escrow: funds are held conditionally, no real SOL moves.
+              </p>
+              <button disabled={busy} onClick={() => action({ action: 'pay' })}>
+                Confirm demo payment
+              </button>
+              <button
+                className="secondary"
+                disabled={busy}
+                onClick={() => action({ action: 'cancel' })}
+              >
+                Cancel order
+              </button>
+            </>
+          )}
+          {role === 'customer' && order.status === 'payment_locked' && (
+            <button
+              className="secondary"
+              disabled={busy}
+              onClick={() => action({ action: 'cancel' })}
+            >
+              Cancel order with refund
+            </button>
+          )}
+          {role === 'operator' && next[order.status] && (
+            <>
+              <p className="muted">
+                Update the stage only after the matching action. This is a manual update, not a
+                drone command.
+              </p>
+              <button
+                disabled={busy}
+                onClick={() => action({ action: 'advance', status: next[order.status] })}
+              >
+                {orderLabels[next[order.status]]}
+              </button>
+            </>
+          )}
+          {role === 'customer' && order.status === 'delivered' && !order.receiptConfirmedAt && (
+            <>
+              <p className="muted">
+                Confirm only after receiving the parcel. This releases the demo payout to the
+                operator.
+              </p>
+              <button disabled={busy} onClick={() => action({ action: 'confirm' })}>
+                Confirm parcel receipt
+              </button>
+            </>
+          )}
+          {role === 'customer' && order.status === 'delivered' && order.receiptConfirmedAt && (
+            <p className="muted">Receipt confirmed. Thank you!</p>
+          )}
+          {role === 'operator' && order.status === 'delivered' && !order.receiptConfirmedAt && (
+            <p className="muted">
+              Waiting for customer confirmation. The operator cannot release the payout themselves.
+            </p>
+          )}
+          {error && (
+            <p role="alert" className="error">
+              {error}
+            </p>
+          )}
+          {busy && <p role="status">Saving…</p>}
+        </section>
+        <section className="card">
+          <h2>Delivery history</h2>
+          <ol className="timeline">
+            {order.events.map((event, index) => (
+              <li key={index}>
+                <strong>{orderLabels[event.status]}</strong>
+                <p className="muted">{new Date(event.at).toLocaleString('en-GB')}</p>
+              </li>
+            ))}
+          </ol>
+        </section>
+      </div>
+    </Shell>
+  );
+}

@@ -9,8 +9,10 @@ export function adminApp() {
   const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
   const privateKey = process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n');
   if (!projectId) throw new Error('Firebase server configuration is missing');
-  if (clientEmail && privateKey) return initializeApp({ projectId, credential: cert({ projectId, clientEmail, privateKey }) });
-  if (process.env.GOOGLE_APPLICATION_CREDENTIALS) return initializeApp({ projectId, credential: applicationDefault() });
+  if (clientEmail && privateKey)
+    return initializeApp({ projectId, credential: cert({ projectId, clientEmail, privateKey }) });
+  if (process.env.GOOGLE_APPLICATION_CREDENTIALS)
+    return initializeApp({ projectId, credential: applicationDefault() });
   throw new Error('Firebase server credentials are missing');
 }
 export const firebaseAuth = () => getAuth(adminApp());

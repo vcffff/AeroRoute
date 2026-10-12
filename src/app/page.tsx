@@ -1,2 +1,4 @@
-import AeroRoutePage from "../shared/reference";
-export default function Home() { return <AeroRoutePage />; }
+import AeroRoutePage from '../shared/reference';
+export default function Home() {
+  return <AeroRoutePage />;
+}

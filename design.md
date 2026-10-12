@@ -148,6 +148,7 @@ spacing:
 AeroRoute delivers autonomous, emission-free point-to-point payload delivery across the metropolitan expanses of Almaty and Astana. The visual identity merges the breezy, human-centric approachability of modern consumer ordering apps (Wolt) with the institutional clarity, geographic rigor, and mission-critical tracking transparency of national postal logistics (Qazpost).
 
 ### Aesthetic Character
+
 - **Friendly High-Tech Logistics:** Clean, expansive white space paired with soft, large-radius geometry (`rounded-2xl` through `rounded-full`). The interface avoids cold industrial tropes, favoring accessible, human-grade aviation visuals.
 - **Precision Wayfinding & Telemetry:** Dynamic schematics, live waypoint nodes, and corridor altitude vectors rendered with crisp, architectural line work rather than skeuomorphic clutter.
 - **Tactile Light Surfaces:** Layered cool-slate tints (`#F4F7F9` to `#EBF1F5`) framing luminous sky cyan accents, anchoring critical order tracking, geofence status, and drop-off coordinates in clean Russian-language typography.
@@ -175,11 +176,13 @@ The type system prioritizes robust Cyrillic legibility across variable light con
 A 12-column adaptive fluid grid governs the operational workspace on desktop, collapsing to a structured 4-column flow on mobile viewport widths.
 
 ### Screen Adaptations
+
 - **Desktop (1200px+):** Split-view paradigm. The left column (4 columns / 380px–440px) anchors order placement, delivery tracking history, and flight status lists. The remaining canvas hosts the interactive vector airspace map (zones, no-fly corridors, active drone paths).
 - **Tablet (768px - 1199px):** Floating card overlay dock with a collapsible lower tracking sheet.
 - **Mobile (< 768px):** Bottom-sheet interface mimicking high-frequency courier apps, anchored by safe-area padding (`env(safe-area-inset-bottom)`) and sticky pill call-to-actions.
 
 ### Spacing Rhythm
+
 Layout utilizes an 8pt base unit. Micro tokens (`space-xs` = 4px, `space-sm` = 8px) handle badge insets, flight leg status indicators, and avatar clusters. Macro tokens (`space-lg` = 24px, `space-xl` = 40px) demarcate distinct tracking stages and modal containers.
 
 ## Elevation & Depth
@@ -202,27 +205,32 @@ The interface embraces pill and rounded aesthetics to reinforce warmth and ease 
 ## Components
 
 ### Buttons
+
 - **Primary Pill:** Background `#FFD028` with `#13283C` text, weight 700. Hover transitions to `#FFB800`. Active scale: `scale(0.98)`.
 - **Aero Cyan (Flight Action):** Background `#19B9E7` with `#13283C` or white text depending on state. Hover utilizes `#0D8EBF` with crisp white text.
 - **Ghost/Tertiary:** Transparent background, `1.5px solid #EBF1F5`, text `#13283C`. Hover triggers background `#F4F7F9`.
 
 ### Chips & Status Badges
-- **Flight Status Tag:** Compact pill format. 
-  - *В пути (In Flight):* Background `rgba(25, 185, 231, 0.12)`, text `#0D8EBF`, accompanied by a pulsing 6px dot.
-  - *Посадка (Landing):* Background `rgba(255, 208, 40, 0.2)`, text `#946C00`.
-  - *Доставлено (Delivered):* Background `rgba(34, 197, 94, 0.12)`, text `#15803D`.
-  - *Бесполётная зона (No-Fly):* Background `rgba(239, 68, 68, 0.1)`, text `#B91C1C`.
+
+- **Flight Status Tag:** Compact pill format.
+  - _В пути (In Flight):_ Background `rgba(25, 185, 231, 0.12)`, text `#0D8EBF`, accompanied by a pulsing 6px dot.
+  - _Посадка (Landing):_ Background `rgba(255, 208, 40, 0.2)`, text `#946C00`.
+  - _Доставлено (Delivered):_ Background `rgba(34, 197, 94, 0.12)`, text `#15803D`.
+  - _Бесполётная зона (No-Fly):_ Background `rgba(239, 68, 68, 0.1)`, text `#B91C1C`.
 
 ### Input Fields & Address Autocomplete
-- Pill or `rounded-2xl` containers, height 52px. Base background `#FFFFFF` with `1.5px solid #EBF1F5`. 
+
+- Pill or `rounded-2xl` containers, height 52px. Base background `#FFFFFF` with `1.5px solid #EBF1F5`.
 - Focus state activates `border-color: #0D8EBF` and a subtle glow `box-shadow: 0 0 0 4px rgba(25, 185, 231, 0.15)`.
 - Integrated pickers support bilingual switchers and predefined hubs (e.g., "Хаб Самал, Алматы", "EXPO Парк, Астана").
 
 ### Delivery Cards
+
 - White surface, `rounded-3xl`, padded with `space-lg` (24px).
 - Upper metadata bar contains tracking ID (e.g., `#KZ-ALM-8492`), ETA timer in Plus Jakarta Sans Bold, and live wind/weather tolerance indicator.
 - Center section hosts a simplified vertical corridor tracker displaying pickup station, waypoint nodes, and receiver landing pad.
 
 ### Landing Zone & Corridors (Domain-Specific)
+
 - **Drop-off Target Selector:** Circular reticle UI showing real-time autonomous clearance (диаметр 2.5м, чистое небо).
 - **Altitude & ETA Gauge:** Compact floating pill presenting remaining flight time (e.g., `~11 мин до прибытия`) and relative ceiling altitude (`Высота: 120м`).
