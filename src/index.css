@@ -40,7 +40,6 @@ button:disabled {
     gap: 8px;
   }
   header a[data-path='avtorizaciya'],
-  header a img,
   header > div > div:last-child > div {
     display: none;
   }

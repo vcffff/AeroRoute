@@ -117,6 +117,7 @@ export function LoginForm({ mode }: { mode: string }) {
         const session = await api<Session>('/api/auth', { action: 'firebase', idToken });
         remember(session);
         router.push(session.profile?.role ? '/dashboard' : '/choose-role');
+        router.refresh();
         return;
       }
       if (action === 'reset-request') {
@@ -158,6 +159,7 @@ export function LoginForm({ mode }: { mode: string }) {
       }
       remember(session);
       router.push(session.profile?.role ? '/dashboard' : '/choose-role');
+      router.refresh();
     } catch (e) {
       setError(message(e));
     } finally {

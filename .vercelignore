@@ -1,0 +1,12 @@
+.git
+.next
+.omx
+.aeroroute
+node_modules
+dist
+legacy
+.env*
+second.txt
+*.tsbuildinfo
+*.log
+*firebase-adminsdk*.json

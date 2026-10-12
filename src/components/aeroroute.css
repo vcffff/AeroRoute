@@ -21,6 +21,10 @@
   gap: 16px;
 }
 .ar .brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
   font-size: 24px;
   font-weight: 800;
   letter-spacing: -1px;
@@ -33,6 +37,7 @@
   align-items: center;
   gap: 16px;
   flex-wrap: wrap;
+  justify-content: flex-end;
 }
 .ar main {
   max-width: 1200px;
@@ -213,6 +218,7 @@
   .ar header {
     padding: 18px 20px;
     align-items: flex-start;
+    flex-wrap: wrap;
   }
   .ar main {
     padding: 24px 16px;

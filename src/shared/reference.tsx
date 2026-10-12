@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { LogoMark } from '@/components/logo-mark';
 
 const defaultDestination = 'Almaty, Kunaev St, 12 (Dostyk Plaza pad)';
 const pricing = {
@@ -9,7 +10,7 @@ const pricing = {
   express: { price: '0.145 SOL', eta: '~12 min in flight (Priority)' },
 };
 
-export default function AeroRoutePage() {
+export default function AeroRoutePage({ username }: { username?: string }) {
   const [parcel, setParcel] = useState<keyof typeof pricing>('docs');
   const [outOfBounds, setOutOfBounds] = useState(false);
   const [destination, setDestination] = useState(defaultDestination);
@@ -25,11 +26,7 @@ export default function AeroRoutePage() {
         <div className="h-20 w-full px-gutter flex items-center justify-between gap-space-md">
           <div className="flex items-center gap-space-lg">
             <a className="flex items-center gap-space-sm" data-path="glavnaya" href="#">
-              <img
-                alt="AeroRoute Logo"
-                className="h-8 w-auto object-contain"
-                src="https://lh3.googleusercontent.com/aida/AEtjO1WMEqAR55rOOyx3lp2KLbGTWmn-VM37MBx9u0Pa_PEwzT6dXEdLr_o1I-jItST_ZW7hkcUQn4VeP1jR4MYXiwh2jd4lsqad87UIiCpbtr8VqWGQpRf7WnnPchmp-ce0HH5GNnus8SItlTlpiQDNmbSkLiNGuK_4C-XbbqtuD4mEOOZ4ZUVfo65YiK-g7VUd-RRpHM5fS1L0uw3AXntECCxgfPr2LxMxQi85HXLGfoMlYAeobUohzmz1CShH"
-              />
+              <LogoMark />
               <span className="font-headline-sm text-headline-sm text-on-surface tracking-tight">
                 AeroRoute
               </span>
@@ -55,21 +52,33 @@ export default function AeroRoutePage() {
             </nav>
           </div>
           <div className="flex items-center gap-space-sm">
-            <a
-              className="px-space-lg py-space-sm rounded-full font-label-lg text-label-lg text-on-surface bg-surface-container-lowest hover:bg-surface-container hover:text-on-surface shadow-sm transition-all"
-              data-path="avtorizaciya"
-              href="/login"
-            >
-              Sign in
-            </a>
+            {username ? (
+              <span
+                className="hidden md:block max-w-48 truncate text-body-sm text-on-surface-variant"
+                title={username}
+              >
+                {username}
+              </span>
+            ) : (
+              <a
+                className="px-space-lg py-space-sm rounded-full font-label-lg text-label-lg text-on-surface bg-surface-container-lowest hover:bg-surface-container hover:text-on-surface shadow-sm transition-all"
+                data-path="avtorizaciya"
+                href="/login"
+              >
+                Sign in
+              </a>
+            )}
             <a
               className="px-space-lg py-space-sm rounded-full font-label-lg text-label-lg text-on-primary-container bg-primary-container hover:bg-cyan-interactive hover:text-on-primary shadow-sm hover:shadow transition-all"
               data-path="otpravit-posylku"
-              href="/customer"
+              href={username ? '/dashboard' : '/customer'}
             >
-              Send a parcel
+              {username ? 'My dashboard' : 'Send a parcel'}
             </a>
-            <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
+            <div
+              className="w-8 h-8 rounded-full bg-primary flex items-center justify-center"
+              aria-hidden="true"
+            >
               <span className="material-symbols-outlined text-on-primary text-[18px]">person</span>
             </div>
           </div>

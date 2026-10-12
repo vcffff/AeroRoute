@@ -1,9 +1,10 @@
 'use client';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useState, type ReactNode } from 'react';
 import { PublicKey } from '@solana/web3.js';
 import { api } from '@/lib/api-client';
+import { LogoMark } from './logo-mark';
 import './aeroroute.css';
 
 export function Shell({
@@ -16,6 +17,15 @@ export function Shell({
   mode?: string;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
+  const dashboardLabel =
+    pathname === '/customer'
+      ? 'Customer dashboard'
+      : pathname === '/operator'
+        ? 'Operator dashboard'
+        : pathname === '/choose-role'
+          ? 'Choose your role'
+          : 'My dashboard';
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   async function logout() {
@@ -39,12 +49,15 @@ export function Shell({
     <div className="ar">
       <header>
         <Link href="/" className="brand">
-          Aero<b>Route</b>
+          <LogoMark />
+          <span>
+            Aero<b>Route</b>
+          </span>
         </Link>
         <nav>
           {username ? (
             <>
-              <Link href="/dashboard">Dashboard</Link>
+              <Link href="/dashboard">{dashboardLabel}</Link>
               <span className="muted">{username}</span>
               <button className="secondary" disabled={busy} onClick={logout}>
                 Sign out

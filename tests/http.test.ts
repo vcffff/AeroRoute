@@ -36,7 +36,7 @@ class Client {
     } catch {
       /* Redirects return HTML, not JSON. */
     }
-    return { response, data };
+    return { response, data, text };
   }
   async ok<T>(path: string, method = 'GET', body?: unknown): Promise<T> {
     const result = await this.request<T>(path, method, body);
@@ -44,6 +44,54 @@ class Client {
     return result.data!;
   }
 }
+
+test('headers reflect the server session through sign-in, role choice and sign-out', {
+  skip: !baseUrl,
+  timeout: 180000,
+}, async () => {
+  const header = async (client: Client, path = '/') => {
+    const result = await client.request(path);
+    assert.equal(result.response.status, 200);
+    const match = result.text.match(/<header\b[^>]*>([\s\S]*?)<\/header>/);
+    assert.ok(match, `Missing header on ${path}`);
+    assert.match(match[1], /src="\/logo_without_name\.png"/);
+    return match[1];
+  };
+  const anonymous = new Client();
+  assert.match(await header(anonymous), /Sign in/);
+  assert.doesNotMatch(await header(anonymous), /My dashboard/);
+  const logo = await anonymous.request('/logo_without_name.png');
+  assert.equal(logo.response.status, 200);
+  assert.match(logo.response.headers.get('content-type') ?? '', /image\/png/);
+
+  for (const role of ['customer', 'operator'] as const) {
+    const account = new Client();
+    const username = `header-${role}-${randomUUID().slice(0, 12)}`;
+    const credentials = { username, password: 'test-password' };
+    await account.ok('/api/auth', 'POST', { action: 'signup', ...credentials });
+    const beforeRole = await header(account);
+    assert.match(beforeRole, new RegExp(username));
+    assert.match(beforeRole, /My dashboard/);
+    assert.doesNotMatch(beforeRole, /Sign in/);
+    assert.match(await header(account, '/choose-role'), /Choose your role/);
+    await account.ok('/api/profile/role', 'POST', { role });
+
+    const signedIn = new Client();
+    await signedIn.ok('/api/auth', 'POST', { action: 'login', ...credentials });
+    const homeHeader = await header(signedIn);
+    assert.match(homeHeader, new RegExp(username));
+    assert.match(homeHeader, /href="\/dashboard"/);
+    assert.doesNotMatch(homeHeader, /Sign in/);
+    const dashboardHeader = await header(signedIn, '/' + role);
+    assert.match(dashboardHeader, new RegExp(`${role === 'customer' ? 'Customer' : 'Operator'} dashboard`));
+    assert.match(dashboardHeader, /Sign out/);
+    await signedIn.ok('/api/auth', 'POST', { action: 'logout' });
+    const signedOutHeader = await header(signedIn);
+    assert.match(signedOutHeader, /Sign in/);
+    assert.doesNotMatch(signedOutHeader, new RegExp(username));
+    assert.doesNotMatch(signedOutHeader, /My dashboard/);
+  }
+});
 
 test(
   'HTTP role redirects, authorization, offer privacy, acceptance race and delivery lifecycle',
@@ -119,7 +167,8 @@ test(
       packageWeightKg: 0.5,
       priceAmount: 1,
     });
-    assert.ok(order.priceAmount > 1);
+    assert.equal(order.priceAmount, 0.065);
+    assert.equal(order.priceCurrency, 'SOL');
     assert.equal(order.paymentStatus, 'pending');
     assert.equal((await stranger.request(`/api/orders/${order.id}`)).response.status, 403);
     assert.equal((await operatorA.request(`/api/orders/${order.id}`)).response.status, 403);
