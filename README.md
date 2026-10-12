@@ -108,18 +108,7 @@ Exact package versions and available scripts are defined in the project's `packa
 
 Target delivery architecture. Backend coordination, tracking, verification, and settlement are planned integrations.
 
-```mermaid
-flowchart TD
-    C["Customer"] --> W["AeroRoute web app"]
-    O["Drone operator"] --> W
-    W --> B["Backend: authorization and coordination"]
-    B --> F["Firestore: requests and tracking"]
-    F --> W
-    B --> V["Delivery verification"]
-    W --> S["Solana escrow"]
-    V --> S
-    S --> P["Operator payout or eligible refund"]
-```
+<img width="1024" height="1536" alt="image" src="https://github.com/user-attachments/assets/df8dfdc0-52c7-421b-82aa-b504ab73618f" />
 
 The web app would provide customer and operator interfaces.
 
