@@ -24,7 +24,7 @@ Landing Page:
 https://aeroroute-landing-page.vercel.app/
 
 Demo Video:
-[Add AeroRoute demo video URL]
+https://youtu.be/-_tN9VXr4Zk
 
 Repository:
 https://github.com/vcffff/AeroRoute
